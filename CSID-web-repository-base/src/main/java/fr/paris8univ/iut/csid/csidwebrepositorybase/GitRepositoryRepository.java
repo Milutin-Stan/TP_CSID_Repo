@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Repository;
 
 import java.net.URISyntaxException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -13,11 +14,13 @@ public class GitRepositoryRepository {
 
     private final GitRepositoryDao gitRepositoryDao;
     private final GithubRepositoryDao githubRepositoryDao;
+    private final StatsDao statsDao;
 
     @Autowired
-    public GitRepositoryRepository(GitRepositoryDao gitRepositoryDao,GithubRepositoryDao githubRepositoryDao) {
+    public GitRepositoryRepository(GitRepositoryDao gitRepositoryDao, GithubRepositoryDao githubRepositoryDao, StatsDao statsDao) {
         this.gitRepositoryDao = gitRepositoryDao;
         this.githubRepositoryDao = githubRepositoryDao;
+        this.statsDao = statsDao;
     }
 
     public List<GitRepository> getRepositories(){
@@ -32,9 +35,14 @@ public class GitRepositoryRepository {
         GitRepositoryEntity gitrepoopt = gitRepositoryDao.findById(name).get();
         GitRepository gitRepository = new GitRepository(gitrepoopt.getName(), gitrepoopt.getOwner(), gitrepoopt.getForks(), gitrepoopt.getOpen_issues());
 
+            //Prendre les infos du github et les mettre dans les 2 tableaux de la BDD
             GithubRepositoryDto githubRepositoryDto = githubRepositoryDao.getGitJson(gitRepository.getName(), gitRepository.getOwner());
             gitRepository.setForks(githubRepositoryDto.getForks());
             gitRepository.setOpen_issues(githubRepositoryDto.getOpen_issues());
+
+            statsDao.save(new StatsEntity(0,"open_issues", LocalDateTime.now().toString(),gitRepository.getOpen_issues(),gitRepository.getName()));
+            statsDao.save(new StatsEntity(0,"forks",LocalDateTime.now().toString(),gitRepository.getForks(),gitRepository.getName()));
+
             patchRepository(gitRepository, name);
 
         return Optional.of(gitRepository);
